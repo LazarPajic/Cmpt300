@@ -1,0 +1,10 @@
+3
+/home/lazar/Assignment_3/input_files/file_1.txt
+1.0
+1.0
+/home/lazar/Assignment_3/input_files/file_2.txt
+0.5
+0.5
+/home/lazar/Assignment_3/input_files/file_3.txt
+0.5
+0.5
