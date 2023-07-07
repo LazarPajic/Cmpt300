@@ -1,5 +1,5 @@
 FLAGS = -g -Wall -std=c99 -Werror -o
-TEST1 = ./myChannels 0 0 0 0 0 0
+TEST1 = ./myChannels 1 1 1 1 1 1
 
 all: myChannels
 
