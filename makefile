@@ -1,6 +1,6 @@
 FLAGS = -g -Wall -std=c99 -Werror -o
 LEAKFLAGS = --leak-check=full --show-leak-kinds=all
-TEST1 = ./myChannels 1 1 1 1 1 1
+TEST1 = ./myChannels 0 1 1 1 1 1
 
 all: myChannels
 
@@ -9,6 +9,9 @@ myChannels: myChannels.c
 
 clean: 
 	rm -rf *.o myChannels
+
+debug:
+	gdb $(TEST1)
 
 leak:
 	valgrind $(LEAKFLAGS) $(TEST1)
