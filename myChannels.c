@@ -3,8 +3,11 @@
 #include <string.h>
 #include <pthread.h>
 #include <math.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 
 #define MAX_LINE 256
+volatile atomic_flag *FLAG = ATOMIC_FLAG_INIT;
 
 struct metadata_struct {
 	char file_path[MAX_LINE];
@@ -31,6 +34,7 @@ void* file_calculations(void* arg){
 	int pos = 0;
 	int index = 0;
 	float new_sample_value = 0;
+	bool output_complete = false;
 	
 	do {
 		ch = fgetc(fp1);
@@ -83,35 +87,24 @@ void* file_calculations(void* arg){
 	
 	arg_struct2->array_size = index;
 	printf("index is: %d\n", index);
-	/*
-	//store first value since no calculations need to be done
-	fscanf(fp1, "%d", &value);
-	arg_struct2->alpha_calcs[0] = value;
-	printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
-	arg_struct2->beta_calcs[0] = arg_struct2->beta * value;
-	printf("beta: %f\n", arg_struct2->beta_calcs[0]);
 	
-	//do calculations for the rest of the values
-	int index = 1;
-	float new_sample_value = 0;
-	while(fscanf(fp1, "%d", &value) == 1){	
-		new_sample_value = arg_struct2->alpha * value + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
-		
-		arg_struct2->alpha_calcs[index] = new_sample_value;
-		printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-		
-		arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
-		printf("beta: %f\n", arg_struct2->beta_calcs[index]);
-		
-		index++;		
+
+	while(!output_complete){
+		while(!atomic_flag_test_and_set(FLAG)){
+			printf("Entering cs...\n");
+			// output writing...
+			atomic_flag_clear(FLAG);
+			output_complete = true;
+		}
+		printf("Exiting cs...\n");
 	}
-	arg_struct2->array_size = index;
-	*/
+
 	pthread_exit(0);
 }
 
+
 int main(int argc, char **argv){
-	//int num_args = argc - 1;
+	
 	
 	int buffer_size = atoi(argv[1]);
 	int num_threads = atoi(argv[2]);
@@ -129,12 +122,23 @@ int main(int argc, char **argv){
 	fp = fopen(metadata_path, "r"); 
 	
 	
+	// opening metadata file
 	if(fp != NULL){
 		fgets(line, 256, fp);
 		file_num = atoi(line);		
 	}
 	else{
 		printf("something went wrong\n");
+		return 1;
+	}
+
+	// opening output file
+	FILE *fp2;
+	printf("%s \n", output_file_path);
+	fp2 = fopen(output_file_path, "w"); 
+	if(fp2 == NULL){
+		printf("Failed to open output file \n");
+		return 1;
 	}
 	
 	struct metadata_struct channel_files[file_num];	
@@ -179,14 +183,7 @@ int main(int argc, char **argv){
 			largest_array_size = channel_files[k].array_size;
 		}
 	}
-	
-	FILE *fp2;
-	printf("%s \n", output_file_path);
-	fp2 = fopen(output_file_path, "w"); 
-	if(fp2 == NULL){
-		printf("Failed to open the file. \n");
-		return 1;
-	}
+
 	
 	for (int i = 0; i < largest_array_size; i++){
 		fprintf(fp2, "%d\n", results[i]);
