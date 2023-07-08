@@ -1,6 +1,6 @@
-FLAGS = -g -Wall -std=c99 -Werror -o
+FLAGS = -g -Wall -std=c11 -Werror -o
 LEAKFLAGS = --leak-check=full --show-leak-kinds=all
-TEST1 = ./myChannels 0 1 1 1 1 1
+EDTEST1 = ./myChannels 2 2 /home/vboxuser/cmpt300/a3/metadata.txt 1 1 /home/vboxuser/cmpt300/a3/output_file.txt
 
 all: myChannels
 
@@ -8,7 +8,7 @@ myChannels: myChannels.c
 	gcc $(FLAGS) myChannels myChannels.c -lm
 
 clean: 
-	rm -rf *.o myChannels
+	rm -rf *.o myChannels output_file.txt
 
 debug:
 	gdb $(TEST1)
@@ -17,4 +17,4 @@ leak:
 	valgrind $(LEAKFLAGS) $(TEST1)
 
 test:
-	$(TEST1)
+	$(EDTEST1)
