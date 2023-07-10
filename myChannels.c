@@ -183,7 +183,14 @@ int main(int argc, char **argv){
 	for (int i = 0; i < file_num; i++){
 		printf("%s and %f and %f \n", channel_files[i].file_path, channel_files[i].alpha, channel_files[i].beta);
 	}
-		
+	
+	int p = file_num % num_threads;
+	
+	if(p != 0){
+		printf("p value is not an integer!\n");
+		return 0;
+	}
+	
 	//Create threads and call file calculations
 	for(int i = 0; i < file_num/num_threads; i++){
 		for(int j = 0; j < num_threads; j++){
@@ -199,16 +206,24 @@ int main(int argc, char **argv){
 	}
 	
 	//Calculate the results from the files and find the largest number of values
-	int results[256];
+	float results[256];
 	int largest_array_size = 0;
 	for(int k = 0; k < file_num; k++){
 		for(int i = 0; i < channel_files[k].array_size; i++){
-			results[i] = ceil(channel_files[k].beta_calcs[i]) + results[i];
+			//results[i] = ceil(channel_files[k].beta_calcs[i]) + results[i];
+			results[i] = channel_files[k].beta_calcs[i] + results[i];
+			//printf("testingn igngsn sf results: %f \n", results[i]);
 		}
 		
 		if(largest_array_size < channel_files[k].array_size){
 			largest_array_size = channel_files[k].array_size;
 		}
+	}
+	
+	//round each result up 
+	int final_results[256];
+	for(int i = 0; i < largest_array_size; i++){
+		final_results[i] = ceil(results[i]);
 	}
 	
 	//Declare file pointer and open file in writing mode
@@ -222,8 +237,8 @@ int main(int argc, char **argv){
 	
 	//Write results into the output_file
 	for (int i = 0; i < largest_array_size; i++){
-		fprintf(fp2, "%d\n", results[i]);
-		printf("results: %d \n", results[i]);
+		fprintf(fp2, "%d\n", final_results[i]);
+		printf("results: %d \n", final_results[i]);
 	}
 	
 	//Close output_file
