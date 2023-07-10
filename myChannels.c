@@ -30,6 +30,7 @@ void* file_calculations(void* arg){
 	printf("%s\n", arg_struct2->file_path);
 	char ch;
 	char ans[arg_struct2->buffer_size];
+	memset(ans, '\0', sizeof(ans));
 	int buff_counter = 0;
 	int pos = 0;
 	int index = 0;
@@ -200,11 +201,10 @@ int main(int argc, char **argv){
 			pthread_attr_init(&attr2);
 			pthread_create(&thid[j], &attr2, file_calculations, &channel_files[i*num_threads + j]);
 		}
-	}
-	
-	//Wait for background threads to finish
-	for (int i = 0; i < num_threads; i++){
-		pthread_join(thid[i], NULL);
+		//Wait for background threads to finish
+		for (int i = 0; i < num_threads; i++){
+			pthread_join(thid[i], NULL);
+		}
 	}
 	
 	//Calculate the results from the files and find the largest number of values
