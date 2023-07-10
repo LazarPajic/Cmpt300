@@ -8,6 +8,7 @@
 
 #define MAX_LINE 256
 //volatile atomic_flag *FLAG = ATOMIC_FLAG_INIT;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct metadata_struct {
 	char file_path[MAX_LINE];
@@ -21,6 +22,7 @@ struct metadata_struct {
 
 void* file_calculations(void* arg){
 	//define current files struct 
+	pthread_mutex_lock(&mutex);
 	struct metadata_struct *arg_struct2 = (struct metadata_struct*) arg;
 	
 	//define variables
@@ -119,7 +121,7 @@ void* file_calculations(void* arg){
 		printf("Exiting cs...\n");
 	}*/
 	
-	
+	pthread_mutex_unlock(&mutex);
 	pthread_exit(0);
 }
 
@@ -206,13 +208,14 @@ int main(int argc, char **argv){
 	}
 	
 	//Calculate the results from the files and find the largest number of values
-	float results[256];
+	float results[256] = {0.0f};
+	printf("testingn 0000 sf results: %f \n", results[0]);
 	int largest_array_size = 0;
 	for(int k = 0; k < file_num; k++){
-		for(int i = 0; i < channel_files[k].array_size; i++){
+		for(int i = 0; i < channel_files[k].array_size; i++){			
 			//results[i] = ceil(channel_files[k].beta_calcs[i]) + results[i];
 			results[i] = channel_files[k].beta_calcs[i] + results[i];
-			//printf("testingn igngsn sf results: %f \n", results[i]);
+			printf("testingn igngsn sf results: %f \n", results[i]);
 		}
 		
 		if(largest_array_size < channel_files[k].array_size){
@@ -223,7 +226,7 @@ int main(int argc, char **argv){
 	//round each result up 
 	int final_results[256];
 	for(int i = 0; i < largest_array_size; i++){
-		final_results[i] = ceil(results[i]);
+		final_results[i] = (int)ceil(results[i]);
 	}
 	
 	//Declare file pointer and open file in writing mode
