@@ -13,6 +13,13 @@ int GLOBAL_CHECKPOINT = 0;
 int LOCK_CONFIG = 0;
 int P = 0;
 int THREAD_NUMBER = 0;
+int THREAD_COUNT = 0;
+
+
+
+
+// update on 12:10pm 7/11/2023
+
 
 
 typedef struct metadata_struct {
@@ -27,107 +34,303 @@ typedef struct metadata_struct {
 
 
 void* file_calculations(void* arg){
-	//define current files struct 
-	metadata_struct *data_file = (metadata_struct*) arg;
+	metadata_struct *data_file_head = (metadata_struct*) arg;
+	bool single_thread_reading_complete = false;
+
+	// arraies for storing values for each file to achieve local checkpointing
+	char chS[P];
+	int indexS[P];
+	char ansS[P][data_file_head->buffer_size];
+	float fvalueS[P];
+	float new_sample_valueS[P];
+	int posS[P];
+	FILE *fileS[P];
+	bool file_complete[P];
+
+
+	// initialization offf arraies
+	for(int i = 0; i < P; i++){
+		metadata_struct *arg_struct2 = &data_file_head[THREAD_NUMBER * i];
+		char ans[arg_struct2->buffer_size];
+		// array deep copy
+		for(int j = 0; j < arg_struct2->buffer_size; j++){
+			ans[j] = ansS[i][j];
+		}
+		memset(ans, '\0', sizeof(ans));
+		indexS[i] = 0;
+		fvalueS[i] = 0.0;
+		new_sample_valueS[i] = 0.0;
+		posS[i] = 0;
+		fileS[i] = fopen(arg_struct2->file_path, "r");
+		file_complete[i] = false;
+	}
+
+
+	// outter most while loop for enforcing local checkpointing
+	// the inner for loop will go through remaining file after reaching k bytes
+	
+	FILE *fp1;
+
+	while(!single_thread_reading_complete){
+
+		// going through files inside a thread
+        // the for loop act as local checkpointing
+		for(int a = 0; a < P; a++){
+
+			// skipping files that's already done
+			if(file_complete[a]){
+				printf("skipping file %d\n", a);
+				continue;
+			}
+
+			metadata_struct *arg_struct2 = &data_file_head[THREAD_NUMBER * a];
+			// restore previous value
+			fp1 = fileS[a];
+			double fvalue = fvalueS[a];
+			char ch = chS[a]; 			// might need initialization for array
+			float new_sample_value = new_sample_valueS[a];
+			int index = indexS[a];
+			char ans[arg_struct2->buffer_size];
+			// array deep copy
+			for(int j = 0; j < arg_struct2->buffer_size; j++){
+				ans[j] = ansS[a][j];
+			}
+			int buffer_counter = 0;
+			int pos = posS[a];
+
+			// single file reading loop, 
+			// reading K bytes then stop
+			// or reaches the end
+			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){
+				
+				ch = fgetc(fp1);
+				printf("ch is: %c\n", ch);
+										
+									
+				
+				//add a valid character to save as a value
+				if(ch != '\n' && ch != '\r' && ch != EOF){
+					if(buffer_counter < arg_struct2->buffer_size){
+						//strcat(ans, ch);
+						ans[pos] = ch;
+						printf("***\n");
+						printf("ans is: %s\n", ans);
+						printf("***\n");
+						buffer_counter++;
+						pos++;
+					}
+				}
+				//treat \n as a byte for buffer_size 
+				else if(ch == '\n'){
+					buffer_counter++;
+				}	
+
+				
+				//when length of value is equal to buffer_size or when current character equals End Of Final and there is valid value
+				//do the alpha and beta calculations
+				if(buffer_counter == arg_struct2->buffer_size || (ch == EOF && pos > 0)){
+
+					printf("counter is %d\n", buffer_counter);
+					//change to float value
+					fvalue = atof(ans);
+					printf("value is: %f\n", fvalue);
+
+					//reset values for next line
+					pos = 0;
+					
+					//save the first value to array in position zero without calculations
+					if(index == 0){
+						arg_struct2->alpha_calcs[0] = fvalue;
+						printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
+						
+						arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
+						printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
+					}
+					//do calculations and save to array
+					else{
+						new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
+						
+						arg_struct2->alpha_calcs[index] = new_sample_value;
+						printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
+						
+						arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
+						printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
+					}
+					
+
+					//fill ans with terminating characters to reuse
+					for(int i = 0; i <= arg_struct2->buffer_size; i++){
+						ans[i] = '\0';
+					}
+
+					// increment index before exiting
+					index++;
+
+					// puasing reading if buffer is reached
+					// break the reading while loop
+					if(buffer_counter == arg_struct2->buffer_size){
+						break;
+					}
+
+					//increase position in array
+					// check complete condition, 
+				}
+
+				// Critical!
+				// file reaches EOF, the file is done
+				// marking with true
+				if(ch == EOF){
+					file_complete[a] = true;
+					// index++;
+                	arg_struct2->array_size = index;
+					printf("recording array size: %d\n", index);
+					printf("file %d reaches end\n", a);
+				}		
+			}
+			// end of single file reading loop
+
+			// finish reading k bytes for one file
+			// store current progress
+			fvalueS[a] = fvalue;
+			chS[a] = ch; 			
+			new_sample_valueS[a] = new_sample_value;
+			indexS[a] = index;
+			fileS[a] = fp1;
+			posS[a] = pos;
+			// array deep copy
+			for(int j = 0; j < arg_struct2->buffer_size; j++){
+				ansS[a][j] = ans[j];
+			}
+			
+			
+
+		// end of single file reading for loop
+		}
+
+		// checking the amount of file done
+		int file_EOF_count = 0;
+		for(int k = 0; k < P; k++){
+			if(file_complete[k]){
+				file_EOF_count++;
+			}
+		}
+		if(file_EOF_count == P){
+			single_thread_reading_complete = true;
+			printf("all files complete reading in this thread\n");
+			printf("%d\n", single_thread_reading_complete);
+			break;
+		}
+
+		// global checkpoint
+    
+	}
+
+
+	printf("thread %d finish reading files..\n", ++THREAD_COUNT);
+
+
+	// closing file pointer
+	for(int i = 0; i < P; i++){
+		fclose(fileS[i]);
+	}
+
 
 
 	// a for loop to go through p files
 	// if it's thread i(0), then it will go through 0, 0 + thread * i until reaches P
-	for(int i = 0; i < P; i++){
-		metadata_struct *arg_struct2 = &data_file[THREAD_NUMBER * i];
+	// for(int i = 0; i < P; i++){
+	// 	metadata_struct *arg_struct2 = &data_file_head[THREAD_NUMBER * i];
 
-		//define variables
-		float fvalue = 0;
-		printf("%s\n", arg_struct2->file_path);
-		char ch;
-		char ans[arg_struct2->buffer_size];
-		memset(ans, '\0', sizeof(ans));
-		int buff_counter = 0;
-		int pos = 0;
-		int index = 0;
-		float new_sample_value = 0;
-		//bool output_complete = false;
+	// 	//define variables
+	// 	float fvalue = 0;
+	// 	printf("%s\n", arg_struct2->file_path);
+	// 	char ch;
+	// 	char ans[arg_struct2->buffer_size];
+	// 	memset(ans, '\0', sizeof(ans));
+	// 	int buff_counter = 0;
+	// 	int pos = 0;
+	// 	int index = 0;
+	// 	float new_sample_value = 0;
+	// 	//bool output_complete = false;
 		
-		//Declare file pointer and open file in reading mode
-		FILE *fp1;
-		fp1 = fopen(arg_struct2->file_path, "r"); 
+	// 	//Declare file pointer and open file in reading mode
+	// 	FILE *fp1;
+	// 	fp1 = fopen(arg_struct2->file_path, "r"); 
 		
-		//Go through the current file character by character
-		do {
-			ch = fgetc(fp1);
-			printf("ch is: %c\n", ch);
+	// 	//Go through the current file character by character
+	// 	do {
+	// 		ch = fgetc(fp1);
+	// 		printf("ch is: %c\n", ch);
 			
-			//add a valid character to save as a value
-			if(ch != '\n' && ch != '\r' && ch != EOF){
-				if(buff_counter < arg_struct2->buffer_size){
-					//strcat(ans, ch);
-					ans[pos] = ch;
-					printf("***\n");
-					printf("ans is: %s\n", ans);
-					printf("***\n");
-					buff_counter++;
-					pos++;
-				}
-			}
-			//treat \n as a byte for buffer_size 
-			else if(ch == '\n'){
-				buff_counter++;
-			}	
+	// 		//add a valid character to save as a value
+	// 		if(ch != '\n' && ch != '\r' && ch != EOF){
+	// 			if(buff_counter < arg_struct2->buffer_size){
+	// 				//strcat(ans, ch);
+	// 				ans[pos] = ch;
+	// 				printf("***\n");
+	// 				printf("ans is: %s\n", ans);
+	// 				printf("***\n");
+	// 				buff_counter++;
+	// 				pos++;
+	// 			}
+	// 		}
+	// 		//treat \n as a byte for buffer_size 
+	// 		else if(ch == '\n'){
+	// 			buff_counter++;
+	// 		}	
 			
-			//when length of value is equal to buffer_size or when current character equals End Of Final and there is valid value
-			//do the alpha and beta calculations
-			if(buff_counter == arg_struct2->buffer_size || (ch == EOF && pos > 0)){
-				printf("counter is %d\n", buff_counter);
-				printf("buffer is %d\n", arg_struct2->buffer_size);
+	// 		//when length of value is equal to buffer_size or when current character equals End Of Final and there is valid value
+	// 		//do the alpha and beta calculations
+	// 		if(buff_counter == arg_struct2->buffer_size || (ch == EOF && pos > 0)){
+	// 			printf("counter is %d\n", buff_counter);
+	// 			printf("buffer is %d\n", arg_struct2->buffer_size);
 				
-				//change to float value
-				fvalue = atof(ans);
-				printf("value is: %f\n", fvalue);
+	// 			//change to float value
+	// 			fvalue = atof(ans);
+	// 			printf("value is: %f\n", fvalue);
 
-				if(GLOBAL_CHECKPOINT == 1){
-					// wait for other threads
-				}
+	// 			if(GLOBAL_CHECKPOINT == 1){
+	// 				// wait for other threads
+	// 			}
 				
-				//reset values for next line
-				buff_counter = 0;
-				pos = 0;
+	// 			//reset values for next line
+	// 			buff_counter = 0;
+	// 			pos = 0;
 				
-				//save the first value to array in position zero without calculations
-				if(index == 0){
-					arg_struct2->alpha_calcs[0] = fvalue;
-					printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
+	// 			//save the first value to array in position zero without calculations
+	// 			if(index == 0){
+	// 				arg_struct2->alpha_calcs[0] = fvalue;
+	// 				printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
 					
-					arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
-					printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
-				}
-				//do calculations and save to array
-				else{
-					new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
+	// 				arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
+	// 				printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
+	// 			}
+	// 			//do calculations and save to array
+	// 			else{
+	// 				new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
 					
-					arg_struct2->alpha_calcs[index] = new_sample_value;
-					printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
+	// 				arg_struct2->alpha_calcs[index] = new_sample_value;
+	// 				printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
 					
-					arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
-					printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
-				}
+	// 				arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
+	// 				printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
+	// 			}
 				
-				//fill ans with terminating characters to reuse
-				for(int i = 0; i <= arg_struct2->buffer_size; i++){
-					ans[i] = '\0';
-				}
+	// 			//fill ans with terminating characters to reuse
+	// 			for(int i = 0; i <= arg_struct2->buffer_size; i++){
+	// 				ans[i] = '\0';
+	// 			}
 				
-				//increase position in array
-				index++;
-			}
+	// 			//increase position in array
+	// 			index++;
+	// 		}
 			
-		} while(ch != EOF);
+	// 	} while(ch != EOF);
 
-		//store the number of values from the file into the file's struct
-		arg_struct2->array_size = index;
-		printf("index is: %d\n", index);
-
-		fclose(fp1);
-	}
+	// 	// store the number of values from the file into the file's struct
+	// 	// arg_struct2->array_size = index;
+	// 	// printf("index is: %d\n", index);
+	// }
 
 	pthread_exit(0);
 }
@@ -148,7 +351,16 @@ int main(int argc, char **argv){
 	
 	pthread_t thid[THREAD_NUMBER];
 	
-	printf("%s \n", metadata_path);
+	// invalid input checking
+	if(file_num % THREAD_NUMBER != 0){
+		printf("Argument error: P value is not an integer\n");
+		return 0;
+	}
+	if(THREAD_NUMBER < 1){
+		printf("Argument error: invalid thread number\n");
+		return 0;
+	}
+	
 	
 	//Declare file pointer and open file in reading mode
 	FILE *fp;
@@ -188,16 +400,6 @@ int main(int argc, char **argv){
 	//Close metadata file
 	fclose(fp);
 	
-	//printing for testing purposes
-	// for (int i = 0; i < file_num; i++){
-	// 	printf("%s and %f and %f \n", channel_files[i].file_path, channel_files[i].alpha, channel_files[i].beta);
-	// }
-	
-	int p = file_num % THREAD_NUMBER;
-	if(p != 0){
-		printf("Pvalue is not an integer!\n");
-		return 0;
-	}
 
 	// P is the number of file each thread has to process
 	P = file_num / THREAD_NUMBER;
@@ -230,7 +432,11 @@ int main(int argc, char **argv){
 		// thread 1 grabs file 1 and go through p files...
 		// thread 2 grabs file 2 and go through p files...
 		pthread_create(&thid[i], NULL, file_calculations, &channel_files[i]);
-		pthread_join(thid[i],NULL);
+	}
+
+	// if called in the same loop as pthread_created, it causes infinite loop
+	for(int i = 0; i < THREAD_NUMBER; i++){
+		pthread_join(thid[i], NULL);
 	}
 
 	
@@ -274,6 +480,5 @@ int main(int argc, char **argv){
 	
 	//Close output_file
 	fclose(fp2);
-	
 	return 0;
 }
