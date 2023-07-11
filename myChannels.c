@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #define MAX_LINE 256
 //volatile atomic_flag *FLAG = ATOMIC_FLAG_INIT;
@@ -122,6 +123,7 @@ void* file_calculations(void* arg){
 		printf("Exiting cs...\n");
 	}*/
 	
+	fclose(fp1);
 	pthread_mutex_unlock(&mutex);
 	pthread_exit(0);
 }
