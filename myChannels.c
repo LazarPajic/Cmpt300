@@ -10,10 +10,20 @@
 
 
 #define MAX_LINE 256
-pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+// for global checkpoint 
 sem_t SEMAPHORE;
+
+// for lock_config 1 
+pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+
+// for lock config 2
+pthread_mutex_t ALPHA_LOCK = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t BETA_LOCK = PTHREAD_MUTEX_INITIALIZER;
+
+// for lock config 3
 volatile atomic_bool CASLOCK = false;
 volatile atomic_bool ATOMIC_FALSE = false;
+
 int GLOBAL_CHECKPOINT = 0;
 int LOCK_CONFIG = 0;
 int P = 0;
@@ -359,31 +369,47 @@ void* file_calculations2(void* arg){
 					
 
 					// CRITICAL SECTION 2
-					// TO BE CHANGED
-					if(!pthread_mutex_lock(&MUTEX)){
-						printf("Thread entering cs...\n");
 
-						//save the first value to array in position zero without calculations
-						if(index == 0){
+					//save the first value to array in position zero without calculations
+					if(index == 0){
+
+						if(!pthread_mutex_lock(&ALPHA_LOCK)){
+							printf("Entering alpha critical section.....\n");
 							arg_struct2->alpha_calcs[0] = fvalue;
 							// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
+							printf("Exit alpha critical section\n");
+							pthread_mutex_unlock(&ALPHA_LOCK);
+						}
 							
+						if(!pthread_mutex_lock(&BETA_LOCK)){
+							printf("Entering beta critical section...\n");
 							arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
 							// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
+							printf("Exit beta critical section\n");
+							pthread_mutex_unlock(&BETA_LOCK);
 						}
-						//do calculations and save to array
-						else{
-							new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
-							
+					}
+					//do calculations and save to array
+					else{
+					new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
+						
+						if(!pthread_mutex_lock(&ALPHA_LOCK)){
+							printf("Entering alpha critical section.....\n");
 							arg_struct2->alpha_calcs[index] = new_sample_value;
 							// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-							
+							printf("Exit alpha critical section\n");
+							pthread_mutex_unlock(&ALPHA_LOCK);
+						}
+						
+						if(!pthread_mutex_lock(&BETA_LOCK)){
+							printf("Entering beta critical section...\n");
 							arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
 							// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
+							printf("Exit beta critical section\n");
+							pthread_mutex_unlock(&BETA_LOCK);
 						}
-						printf("Thread exiting cs\n");
-						pthread_mutex_unlock(&MUTEX);
 					}
+					
 					// END OF CRITICAL SECTION 
 					
 
@@ -707,16 +733,6 @@ int main(int argc, char **argv){
 	
 	sem_init(&SEMAPHORE, 0, THREAD_NUMBER);
 	pthread_t thid[THREAD_NUMBER];
-	
-	// invalid input checking
-	if(file_num % THREAD_NUMBER != 0){
-		printf("Argument error: P value is not an integer\n");
-		return 0;
-	}
-	if(THREAD_NUMBER < 1 || buffer_size < 1){
-		printf("Argument error: invalid thread or buffer size number\n");
-		return 0;
-	}
 
 
 	//Declare file pointer and open file in reading mode
@@ -757,6 +773,15 @@ int main(int argc, char **argv){
 	//Close metadata file
 	fclose(fp);
 	
+	// invalid input checking
+	if(file_num % THREAD_NUMBER != 0){
+		printf("Argument error: P value is not an integer\n");
+		return 0;
+	}
+	if(THREAD_NUMBER < 1 || buffer_size < 1){
+		printf("Argument error: invalid thread or buffer size number\n");
+		return 0;
+	}
 
 	// P is the number of file each thread has to process
 	P = file_num / THREAD_NUMBER;
