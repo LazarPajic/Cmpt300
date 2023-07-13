@@ -91,7 +91,6 @@ void* file_calculations1(void* arg){
 
 			// skipping files that's already done
 			if(file_complete[a]){
-				// printf("skipping file %d\n", a);
 				continue;
 			}
 
@@ -113,21 +112,13 @@ void* file_calculations1(void* arg){
 			// single file reading loop, 
 			// reading K bytes then stop
 			// or reaches the end
-			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){
-				
-				ch = fgetc(fp1);
-				// printf("ch is: %c\n", ch);
-										
-									
+			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){				
+				ch = fgetc(fp1);		
 				
 				//add a valid character to save as a value
 				if(ch != '\n' && ch != '\r' && ch != EOF){
 					if(buffer_counter < arg_struct2->buffer_size){
-						//strcat(ans, ch);
 						ans[pos] = ch;
-						// printf("***\n");
-						// printf("ans is: %s\n", ans);
-						// printf("***\n");
 						buffer_counter++;
 						pos++;
 					}
@@ -141,15 +132,11 @@ void* file_calculations1(void* arg){
 				//when length of value is equal to buffer_size or when current character equals End Of Final and there is valid value
 				//do the alpha and beta calculations
 				if(buffer_counter == arg_struct2->buffer_size || (ch == EOF && pos > 0)){
-
-					// printf("counter is %d\n", buffer_counter);
 					//change to float value
 					fvalue = atof(ans);
-					// printf("value is: %f\n", fvalue);
 
 					//reset values for next line
 					pos = 0;
-					
 
 					// CRITICAL SECTION 1
 					// global checkpoint
@@ -161,30 +148,21 @@ void* file_calculations1(void* arg){
 						// and no wait() thread can actually go before all thread post() complete
 						// the later prevents one thread going full cycle
 						sem_wait(&SEMAPHORE);
-						//sem_post(&SEMAPHORE);
 					}
 					pthread_mutex_lock(&MUTEX);
-					// printf("Thread entering cs...\n");
 
 					//save the first value to array in position zero without calculations
 					if(index == 0){
-						arg_struct2->alpha_calcs[0] = fvalue;
-						// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
-						
+						arg_struct2->alpha_calcs[0] = fvalue;						
 						arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
-						// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
 					}
 					//do calculations and save to array
 					else{
 						new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
 						
-						arg_struct2->alpha_calcs[index] = new_sample_value;
-						// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-						
+						arg_struct2->alpha_calcs[index] = new_sample_value;						
 						arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
-						// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
 					}
-					// printf("Thread exiting cs\n");
 					pthread_mutex_unlock(&MUTEX);
 					
 					// global checkpoint
@@ -195,7 +173,6 @@ void* file_calculations1(void* arg){
 						// no post() can be done before every thread complete wait()
 						// and no wait() thread can actually go before all thread post() complete
 						// the later prevents one thread going full cycle
-						//sem_wait(&SEMAPHORE);
 						sem_post(&SEMAPHORE);
 					}
 					
@@ -223,10 +200,7 @@ void* file_calculations1(void* arg){
 				// marking with true
 				if(ch == EOF){
 					file_complete[a] = true;
-					// index++;
-                	arg_struct2->array_size = index;
-					// printf("recording array size: %d\n", index);
-					// printf("file %d reaches end\n", a);
+                			arg_struct2->array_size = index;
 				}		
 			}
 			// end of single file reading loop
@@ -259,29 +233,13 @@ void* file_calculations1(void* arg){
 		if(file_EOF_count == P){
 			single_thread_reading_complete = true;
 			break;
-		}
-		/*
-		// global checkpoint
-		// threads will have to wait before other threads complete
-		if(GLOBAL_CHECKPOINT == 1){
-
-			// since the atomic nature of the semaphore
-			// no post() can be done before every thread complete wait()
-			// and no wait() thread can actually go before all thread post() complete
-			// the later prevents one thread going full cycle
-			sem_wait(&SEMAPHORE);
-			sem_post(&SEMAPHORE);
-		}*/
-    
+		}    
 	}
-
-
 
 	// closing file pointer
 	for(int i = 0; i < P; i++){
 		fclose(fileS[i]);
 	}
-
 
 	pthread_exit(0);
 }
@@ -327,12 +285,11 @@ void* file_calculations2(void* arg){
 	while(!single_thread_reading_complete){
 
 		// going through files inside a thread
-        // the for loop act as local checkpointing
+        	// the for loop act as local checkpointing
 		for(int a = 0; a < P; a++){
 
 			// skipping files that's already done
 			if(file_complete[a]){
-				//printf("skipping file %d\n", a);
 				continue;
 			}
 			
@@ -354,21 +311,13 @@ void* file_calculations2(void* arg){
 			// single file reading loop, 
 			// reading K bytes then stop
 			// or reaches the end
-			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){
-				
-				ch = fgetc(fp1);
-				// printf("ch is: %c\n", ch);
-										
-									
+			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){				
+				ch = fgetc(fp1);										
 				
 				//add a valid character to save as a value
 				if(ch != '\n' && ch != '\r' && ch != EOF){
 					if(buffer_counter < arg_struct2->buffer_size){
-						//strcat(ans, ch);
 						ans[pos] = ch;
-						// printf("***\n");
-						// printf("ans is: %s\n", ans);
-						// printf("***\n");
 						buffer_counter++;
 						pos++;
 					}
@@ -378,19 +327,14 @@ void* file_calculations2(void* arg){
 					buffer_counter++;
 				}	
 
-				
 				//when length of value is equal to buffer_size or when current character equals End Of Final and there is valid value
 				//do the alpha and beta calculations
 				if(buffer_counter == arg_struct2->buffer_size || (ch == EOF && pos > 0)){
-
-					// printf("counter is %d\n", buffer_counter);
 					//change to float value
 					fvalue = atof(ans);
-					// printf("value is: %f\n", fvalue);
 
 					//reset values for next line
-					pos = 0;
-					
+					pos = 0;					
 
 					// CRITICAL SECTION 2
 					// global checkpoint
@@ -402,49 +346,22 @@ void* file_calculations2(void* arg){
 						// and no wait() thread can actually go before all thread post() complete
 						// the later prevents one thread going full cycle
 						sem_wait(&SEMAPHORE);
-						//sem_post(&SEMAPHORE);
 					}
 					pthread_mutex_lock(&arg_struct2->config2_locks[line_counter]);
 					//save the first value to array in position zero without calculations
 					if(index == 0){
-
-						//if(!pthread_mutex_lock(&ALPHA_LOCK)){
-							//printf("Entering alpha critical section.....\n");
-							arg_struct2->alpha_calcs[0] = fvalue;
-							// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
-							//printf("Exit alpha critical section\n");
-							//pthread_mutex_unlock(&ALPHA_LOCK);
-						//}
-							
-						//if(!pthread_mutex_lock(&BETA_LOCK)){
-							//printf("Entering beta critical section...\n");
-							arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
-							// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
-							//printf("Exit beta critical section\n");
-							//pthread_mutex_unlock(&BETA_LOCK);
-						//}
+						arg_struct2->alpha_calcs[0] = fvalue;
+						arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
 					}
 					//do calculations and save to array
 					else{
-					new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
-						
-						//if(!pthread_mutex_lock(&ALPHA_LOCK)){
-							//printf("Entering alpha critical section.....\n");
-							arg_struct2->alpha_calcs[index] = new_sample_value;
-							// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-							//printf("Exit alpha critical section\n");
-							//pthread_mutex_unlock(&ALPHA_LOCK);
-						//}
-						
-						//if(!pthread_mutex_lock(&BETA_LOCK)){
-							//printf("Entering beta critical section...\n");
-							arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
-							// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
-							//printf("Exit beta critical section\n");
-							//pthread_mutex_unlock(&BETA_LOCK);
-						//}
+						new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
+						arg_struct2->alpha_calcs[index] = new_sample_value;
+						arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
 					}
+					
 					pthread_mutex_unlock(&arg_struct2->config2_locks[line_counter]);
+					
 					// global checkpoint
 					// threads will have to wait before other threads complete
 					if(GLOBAL_CHECKPOINT == 1){
@@ -452,8 +369,7 @@ void* file_calculations2(void* arg){
 						// since the atomic nature of the semaphore
 						// no post() can be done before every thread complete wait()
 						// and no wait() thread can actually go before all thread post() complete
-						// the later prevents one thread going full cycle
-						//sem_wait(&SEMAPHORE);
+						// the later prevents one thread going full cycle						
 						sem_post(&SEMAPHORE);
 					}
 					// END OF CRITICAL SECTION 
@@ -481,10 +397,7 @@ void* file_calculations2(void* arg){
 				// marking with true
 				if(ch == EOF){
 					file_complete[a] = true;
-					// index++;
-                	arg_struct2->array_size = index;
-					// printf("recording array size: %d\n", index);
-					// printf("file %d reaches end\n", a);
+                			arg_struct2->array_size = index;
 				}		
 			}
 			// end of single file reading loop
@@ -518,28 +431,12 @@ void* file_calculations2(void* arg){
 			single_thread_reading_complete = true;
 			break;
 		}
-		/*
-		// global checkpoint
-		// threads will have to wait before other threads complete
-		if(GLOBAL_CHECKPOINT == 1){
-
-			// since the atomic nature of the semaphore
-			// no post() can be done before every thread complete wait()
-			// and no wait() thread can actually go before all thread post() complete
-			// the later prevents one thread going full cycle
-			sem_wait(&SEMAPHORE);
-			sem_post(&SEMAPHORE);
-		}*/
-    
 	}
-
-
 
 	// closing file pointer
 	for(int i = 0; i < P; i++){
 		fclose(fileS[i]);
 	}
-
 
 	pthread_exit(0);
 }
@@ -580,18 +477,15 @@ void* file_calculations3(void* arg){
 
 	// outter most while loop for enforcing local checkpointing
 	// the inner for loop will go through remaining file after reaching k bytes
-	
 	FILE *fp1;
 
 	while(!single_thread_reading_complete){
-
 		// going through files inside a thread
-        // the for loop act as local checkpointing
+        	// the for loop act as local checkpointing
 		for(int a = 0; a < P; a++){
 
 			// skipping files that's already done
 			if(file_complete[a]){
-				// printf("skipping file %d\n", a);
 				continue;
 			}
 
@@ -613,21 +507,13 @@ void* file_calculations3(void* arg){
 			// single file reading loop, 
 			// reading K bytes then stop
 			// or reaches the end
-			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){
-				
-				ch = fgetc(fp1);
-				// printf("ch is: %c\n", ch);
-										
-									
+			while(ch != EOF && buffer_counter < arg_struct2->buffer_size){				
+				ch = fgetc(fp1);									
 				
 				//add a valid character to save as a value
 				if(ch != '\n' && ch != '\r' && ch != EOF){
 					if(buffer_counter < arg_struct2->buffer_size){
-						//strcat(ans, ch);
 						ans[pos] = ch;
-						// printf("***\n");
-						// printf("ans is: %s\n", ans);
-						// printf("***\n");
 						buffer_counter++;
 						pos++;
 					}
@@ -636,26 +522,20 @@ void* file_calculations3(void* arg){
 				else if(ch == '\n'){
 					buffer_counter++;
 				}	
-
 				
 				//when length of value is equal to buffer_size or when current character equals End Of Final and there is valid value
 				//do the alpha and beta calculations
 				if(buffer_counter == arg_struct2->buffer_size || (ch == EOF && pos > 0)){
-
-					// printf("counter is %d\n", buffer_counter);
 					//change to float value
 					fvalue = atof(ans);
-					// printf("value is: %f\n", fvalue);
 
 					//reset values for next line
 					pos = 0;
-					
 
 					// CRITICAL SECTION 3
 					while(atomic_compare_exchange_strong(&CASLOCK, &ATOMIC_FALSE, true) != 0){
 						// busy waiting
 					}
-					//printf("Thread entering cs...\n");
 					//save the first value to array in position zero without calculations
 					
 					// global checkpoint
@@ -667,25 +547,18 @@ void* file_calculations3(void* arg){
 						// and no wait() thread can actually go before all thread post() complete
 						// the later prevents one thread going full cycle
 						sem_wait(&SEMAPHORE);
-						//sem_post(&SEMAPHORE);
 					}
 					if(index == 0){
 						arg_struct2->alpha_calcs[0] = fvalue;
-						// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
-
 						arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
-						// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
 					}
 					//do calculations and save to array
 					else{
-						new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
-
+						new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];
 						arg_struct2->alpha_calcs[index] = new_sample_value;
-						// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-
 						arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
-						// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
 					}
+					
 					// global checkpoint
 					// threads will have to wait before other threads complete
 					if(GLOBAL_CHECKPOINT == 1){
@@ -694,10 +567,9 @@ void* file_calculations3(void* arg){
 						// no post() can be done before every thread complete wait()
 						// and no wait() thread can actually go before all thread post() complete
 						// the later prevents one thread going full cycle
-						//sem_wait(&SEMAPHORE);
 						sem_post(&SEMAPHORE);
 					}
-					//printf("Thread exiting cs\n");
+					
 					// END OF CRITICAL SECTION
 					atomic_exchange(&CASLOCK, false);
 					
@@ -724,7 +596,7 @@ void* file_calculations3(void* arg){
 				// marking with true
 				if(ch == EOF){
 					file_complete[a] = true;
-                	arg_struct2->array_size = index;
+                			arg_struct2->array_size = index;
 				}		
 			}
 			// end of single file reading loop
@@ -740,9 +612,7 @@ void* file_calculations3(void* arg){
 			// array deep copy
 			for(int j = 0; j < arg_struct2->buffer_size; j++){
 				ansS[a][j] = ans[j];
-			}
-			
-			
+			}			
 
 		// end of single file reading for loop
 		}
@@ -758,28 +628,12 @@ void* file_calculations3(void* arg){
 			single_thread_reading_complete = true;
 			break;
 		}
-		/*
-		// global checkpoint
-		// threads will have to wait before other threads complete
-		if(GLOBAL_CHECKPOINT == 1){
-
-			// since the atomic nature of the semaphore
-			// no post() can be done before every thread complete wait()
-			// and no wait() thread can actually go before all thread post() complete
-			// the later prevents one thread going full cycle
-			sem_wait(&SEMAPHORE);
-			sem_post(&SEMAPHORE);
-		}*/
-    
 	}
-
-
 
 	// closing file pointer
 	for(int i = 0; i < P; i++){
 		fclose(fileS[i]);
 	}
-
 
 	pthread_exit(0);
 }
@@ -900,14 +754,11 @@ int main(int argc, char **argv){
 	
 	//Calculate the results from the files and find the largest number of values
 	float results[256] = {0.0f};
-	// printf("testingn 0000 sf results: %f \n", results[0]);
 	int largest_array_size = 0;
-	// printf("file num: %d\n", file_num);
+	
 	for(int k = 0; k < file_num; k++){
 		for(int i = 0; i < channel_files[k].array_size; i++){			
-			//results[i] = ceil(channel_files[k].beta_calcs[i]) + results[i];
 			results[i] = channel_files[k].beta_calcs[i] + results[i];
-			// printf("testingn igngsn sf results: %f \n", results[i]);
 		}
 		
 		if(largest_array_size < channel_files[k].array_size){
@@ -923,7 +774,6 @@ int main(int argc, char **argv){
 	
 	//Declare file pointer and open file in writing mode
 	FILE *fp2;
-	// printf("%s \n", output_file_path);
 	fp2 = fopen(output_file_path, "w"); 
 	if(fp2 == NULL){
 		printf("Failed to open output file \n");
@@ -933,7 +783,7 @@ int main(int argc, char **argv){
 	//Write results into the output_file
 	for (int i = 0; i < largest_array_size; i++){
 		fprintf(fp2, "%d\n", final_results[i]);
-		printf("results: %d \n", final_results[i]);
+		//printf("results: %d \n", final_results[i]);
 	}
 	
 	//Close output_file
