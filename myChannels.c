@@ -41,6 +41,7 @@ typedef struct metadata_struct {
 	float beta_calcs[256];
 	int array_size;
 	int buffer_size;
+	pthread_mutex_t* config2_locks;
 }metadata_struct;
 
 
@@ -151,30 +152,53 @@ void* file_calculations1(void* arg){
 					
 
 					// CRITICAL SECTION 1
-					if(!pthread_mutex_lock(&MUTEX)){
-						// printf("Thread entering cs...\n");
+					// global checkpoint
+					// threads will have to wait before other threads complete
+					if(GLOBAL_CHECKPOINT == 1){
 
-						//save the first value to array in position zero without calculations
-						if(index == 0){
-							arg_struct2->alpha_calcs[0] = fvalue;
-							// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
-							
-							arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
-							// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
-						}
-						//do calculations and save to array
-						else{
-							new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
-							
-							arg_struct2->alpha_calcs[index] = new_sample_value;
-							// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-							
-							arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
-							// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
-						}
-						// printf("Thread exiting cs\n");
-						pthread_mutex_unlock(&MUTEX);
+						// since the atomic nature of the semaphore
+						// no post() can be done before every thread complete wait()
+						// and no wait() thread can actually go before all thread post() complete
+						// the later prevents one thread going full cycle
+						sem_wait(&SEMAPHORE);
+						//sem_post(&SEMAPHORE);
 					}
+					pthread_mutex_lock(&MUTEX);
+					// printf("Thread entering cs...\n");
+
+					//save the first value to array in position zero without calculations
+					if(index == 0){
+						arg_struct2->alpha_calcs[0] = fvalue;
+						// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
+						
+						arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
+						// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
+					}
+					//do calculations and save to array
+					else{
+						new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
+						
+						arg_struct2->alpha_calcs[index] = new_sample_value;
+						// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
+						
+						arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
+						// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
+					}
+					// printf("Thread exiting cs\n");
+					pthread_mutex_unlock(&MUTEX);
+					
+					// global checkpoint
+					// threads will have to wait before other threads complete
+					if(GLOBAL_CHECKPOINT == 1){
+
+						// since the atomic nature of the semaphore
+						// no post() can be done before every thread complete wait()
+						// and no wait() thread can actually go before all thread post() complete
+						// the later prevents one thread going full cycle
+						//sem_wait(&SEMAPHORE);
+						sem_post(&SEMAPHORE);
+					}
+					
 					// END OF CRITICAL SECTION
 
 					//fill ans with terminating characters to reuse
@@ -236,7 +260,7 @@ void* file_calculations1(void* arg){
 			single_thread_reading_complete = true;
 			break;
 		}
-
+		/*
 		// global checkpoint
 		// threads will have to wait before other threads complete
 		if(GLOBAL_CHECKPOINT == 1){
@@ -247,7 +271,7 @@ void* file_calculations1(void* arg){
 			// the later prevents one thread going full cycle
 			sem_wait(&SEMAPHORE);
 			sem_post(&SEMAPHORE);
-		}
+		}*/
     
 	}
 
@@ -275,7 +299,7 @@ void* file_calculations2(void* arg){
 	int posS[P];
 	FILE *fileS[P];
 	bool file_complete[P];
-
+	int line_counter = 0;
 
 	// initialization offf arraies
 	for(int i = 0; i < P; i++){
@@ -308,10 +332,10 @@ void* file_calculations2(void* arg){
 
 			// skipping files that's already done
 			if(file_complete[a]){
-				// printf("skipping file %d\n", a);
+				//printf("skipping file %d\n", a);
 				continue;
 			}
-
+			
 			metadata_struct *arg_struct2 = &data_file_head[THREAD_NUMBER * a];
 			// restore previous value
 			fp1 = fileS[a];
@@ -369,47 +393,69 @@ void* file_calculations2(void* arg){
 					
 
 					// CRITICAL SECTION 2
+					// global checkpoint
+					// threads will have to wait before other threads complete
+					if(GLOBAL_CHECKPOINT == 1){
 
+						// since the atomic nature of the semaphore
+						// no post() can be done before every thread complete wait()
+						// and no wait() thread can actually go before all thread post() complete
+						// the later prevents one thread going full cycle
+						sem_wait(&SEMAPHORE);
+						//sem_post(&SEMAPHORE);
+					}
+					pthread_mutex_lock(&arg_struct2->config2_locks[line_counter]);
 					//save the first value to array in position zero without calculations
 					if(index == 0){
 
-						if(!pthread_mutex_lock(&ALPHA_LOCK)){
-							printf("Entering alpha critical section.....\n");
+						//if(!pthread_mutex_lock(&ALPHA_LOCK)){
+							//printf("Entering alpha critical section.....\n");
 							arg_struct2->alpha_calcs[0] = fvalue;
 							// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
-							printf("Exit alpha critical section\n");
-							pthread_mutex_unlock(&ALPHA_LOCK);
-						}
+							//printf("Exit alpha critical section\n");
+							//pthread_mutex_unlock(&ALPHA_LOCK);
+						//}
 							
-						if(!pthread_mutex_lock(&BETA_LOCK)){
-							printf("Entering beta critical section...\n");
+						//if(!pthread_mutex_lock(&BETA_LOCK)){
+							//printf("Entering beta critical section...\n");
 							arg_struct2->beta_calcs[0] = arg_struct2->beta * fvalue;
 							// printf("beta: %f is %f\n", arg_struct2->beta, arg_struct2->beta_calcs[0]);
-							printf("Exit beta critical section\n");
-							pthread_mutex_unlock(&BETA_LOCK);
-						}
+							//printf("Exit beta critical section\n");
+							//pthread_mutex_unlock(&BETA_LOCK);
+						//}
 					}
 					//do calculations and save to array
 					else{
 					new_sample_value = arg_struct2->alpha * fvalue + (1 - arg_struct2->alpha) * arg_struct2->alpha_calcs[index - 1];	
 						
-						if(!pthread_mutex_lock(&ALPHA_LOCK)){
-							printf("Entering alpha critical section.....\n");
+						//if(!pthread_mutex_lock(&ALPHA_LOCK)){
+							//printf("Entering alpha critical section.....\n");
 							arg_struct2->alpha_calcs[index] = new_sample_value;
 							// printf("alpha: %f\n", arg_struct2->alpha_calcs[index]);
-							printf("Exit alpha critical section\n");
-							pthread_mutex_unlock(&ALPHA_LOCK);
-						}
+							//printf("Exit alpha critical section\n");
+							//pthread_mutex_unlock(&ALPHA_LOCK);
+						//}
 						
-						if(!pthread_mutex_lock(&BETA_LOCK)){
-							printf("Entering beta critical section...\n");
+						//if(!pthread_mutex_lock(&BETA_LOCK)){
+							//printf("Entering beta critical section...\n");
 							arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
 							// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
-							printf("Exit beta critical section\n");
-							pthread_mutex_unlock(&BETA_LOCK);
-						}
+							//printf("Exit beta critical section\n");
+							//pthread_mutex_unlock(&BETA_LOCK);
+						//}
 					}
-					
+					pthread_mutex_unlock(&arg_struct2->config2_locks[line_counter]);
+					// global checkpoint
+					// threads will have to wait before other threads complete
+					if(GLOBAL_CHECKPOINT == 1){
+
+						// since the atomic nature of the semaphore
+						// no post() can be done before every thread complete wait()
+						// and no wait() thread can actually go before all thread post() complete
+						// the later prevents one thread going full cycle
+						//sem_wait(&SEMAPHORE);
+						sem_post(&SEMAPHORE);
+					}
 					// END OF CRITICAL SECTION 
 					
 
@@ -455,7 +501,7 @@ void* file_calculations2(void* arg){
 			for(int j = 0; j < arg_struct2->buffer_size; j++){
 				ansS[a][j] = ans[j];
 			}
-			
+			line_counter++;
 			
 
 		// end of single file reading for loop
@@ -472,7 +518,7 @@ void* file_calculations2(void* arg){
 			single_thread_reading_complete = true;
 			break;
 		}
-
+		/*
 		// global checkpoint
 		// threads will have to wait before other threads complete
 		if(GLOBAL_CHECKPOINT == 1){
@@ -483,7 +529,7 @@ void* file_calculations2(void* arg){
 			// the later prevents one thread going full cycle
 			sem_wait(&SEMAPHORE);
 			sem_post(&SEMAPHORE);
-		}
+		}*/
     
 	}
 
@@ -609,8 +655,20 @@ void* file_calculations3(void* arg){
 					while(atomic_compare_exchange_strong(&CASLOCK, &ATOMIC_FALSE, true) != 0){
 						// busy waiting
 					}
-					printf("Thread entering cs...\n");
+					//printf("Thread entering cs...\n");
 					//save the first value to array in position zero without calculations
+					
+					// global checkpoint
+					// threads will have to wait before other threads complete
+					if(GLOBAL_CHECKPOINT == 1){
+
+						// since the atomic nature of the semaphore
+						// no post() can be done before every thread complete wait()
+						// and no wait() thread can actually go before all thread post() complete
+						// the later prevents one thread going full cycle
+						sem_wait(&SEMAPHORE);
+						//sem_post(&SEMAPHORE);
+					}
 					if(index == 0){
 						arg_struct2->alpha_calcs[0] = fvalue;
 						// printf("alpha: %f\n", arg_struct2->alpha_calcs[0]);
@@ -628,7 +686,18 @@ void* file_calculations3(void* arg){
 						arg_struct2->beta_calcs[index] = arg_struct2->beta * new_sample_value;
 						// printf("beta: %f for this %f\n", arg_struct2->beta, arg_struct2->beta_calcs[index]);
 					}
-					printf("Thread exiting cs\n");
+					// global checkpoint
+					// threads will have to wait before other threads complete
+					if(GLOBAL_CHECKPOINT == 1){
+
+						// since the atomic nature of the semaphore
+						// no post() can be done before every thread complete wait()
+						// and no wait() thread can actually go before all thread post() complete
+						// the later prevents one thread going full cycle
+						//sem_wait(&SEMAPHORE);
+						sem_post(&SEMAPHORE);
+					}
+					//printf("Thread exiting cs\n");
 					// END OF CRITICAL SECTION
 					atomic_exchange(&CASLOCK, false);
 					
@@ -689,7 +758,7 @@ void* file_calculations3(void* arg){
 			single_thread_reading_complete = true;
 			break;
 		}
-
+		/*
 		// global checkpoint
 		// threads will have to wait before other threads complete
 		if(GLOBAL_CHECKPOINT == 1){
@@ -700,7 +769,7 @@ void* file_calculations3(void* arg){
 			// the later prevents one thread going full cycle
 			sem_wait(&SEMAPHORE);
 			sem_post(&SEMAPHORE);
-		}
+		}*/
     
 	}
 
@@ -733,7 +802,11 @@ int main(int argc, char **argv){
 	
 	sem_init(&SEMAPHORE, 0, THREAD_NUMBER);
 	pthread_t thid[THREAD_NUMBER];
-
+	pthread_mutex_t Lock2Entries[256];
+	
+	for(int i = 0; i < 256; i++){
+		pthread_mutex_init(&Lock2Entries[i], NULL);
+	}
 
 	//Declare file pointer and open file in reading mode
 	FILE *fp;
@@ -768,6 +841,8 @@ int main(int argc, char **argv){
 		
 		//save the buffer_size value
 		channel_files[i].buffer_size = buffer_size;
+		
+		channel_files[i].config2_locks = Lock2Entries;
 	}
 	
 	//Close metadata file
